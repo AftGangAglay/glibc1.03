@@ -16,144 +16,95 @@ License along with the GNU C Library; see the file COPYING.LIB.  If
 not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.  */
 
-#include <ansidecl.h>
-#include <ctype.h>
-#include <limits.h>
-#include <stddef.h>
-#include <stdlib.h>
+#include <asys/base.h>
+#include <asys/string.h>
 
+asys_native_long_t glibc_strtol(const char* string, char** end, int base) {
+	asys_native_ulong_t cutoff, i;
 
-#ifndef	UNSIGNED
-#define	UNSIGNED	0
-#endif
+	const char* s;
+	const char* save;
 
-/* Convert NPTR to an `unsigned long int' or `long int' in base BASE.
-   If BASE is 0 the base is determined by the presence of a leading
-   zero, indicating octal or a leading "0x" or "0X", indicating hexadecimal.
-   If BASE is < 2 or > 36, it is reset to 10.
-   If ENDPTR is not NULL, a pointer to the character after the last
-   one converted is stored in *ENDPTR.  */
-#if	UNSIGNED
-unsigned long int
-#define	strtol	strtoul
-#else
-long int
-#endif
-DEFUN(strtol, (nptr, endptr, base),
-      CONST char *nptr AND char **endptr AND int base)
-{
-  char sign;
-  register unsigned long int cutoff;
-  register unsigned int cutlim;
-  register unsigned long int i;
-  register CONST char *s;
-  register unsigned char c;
-  CONST char *save;
-  int overflow;
+	char c;
 
-  if (base < 0 || base == 1 || base > 36)
-    base = 10;
+	unsigned limit;
+	int overflow, ishex, sign;
 
-  s = nptr;
+	if(base < 0 || base == 1 || base > 36) base = 10;
 
-  /* Skip white space.  */
-  while (isspace(*s))
-    ++s;
-  if (*s == '\0')
-    goto noconv;
+	s = string;
 
-  /* Check for a sign.  */
-  if (*s == '-')
-    {
-      sign = -1;
-      ++s;
-    }
-  else if (*s == '+')
-    {
-      sign = 1;
-      ++s;
-    }
-  else
-    sign = 1;
+	/* Skip white space.  */
+	while(asys_character_is_blank(*s)) ++s;
 
-  if (base == 16 && s[0] == '0' && toupper(s[1]) == 'X')
-    s += 2;
+	if(*s == '\0') goto noconv;
 
-  /* If BASE is zero, figure it out ourselves.  */
-  if (base == 0)
-    if (*s == '0')
-      {
-	if (toupper(s[1]) == 'X')
-	  {
-	    s += 2;
-	    base = 16;
-	  }
-	else
-	  base = 8;
-      }
-    else
-      base = 10;
-
-  /* Save the pointer so we can check later if anything happened.  */
-  save = s;
-
-  cutoff = ULONG_MAX / (unsigned long int) base;
-  cutlim = ULONG_MAX % (unsigned long int) base;
-
-  overflow = 0;
-  i = 0;
-  for (c = *s; c != '\0'; c = *++s)
-    {
-      if (isdigit(c))
-	c -= '0';
-      else if (isalpha(c))
-	c = toupper(c) - 'A' + 10;
-      else
-	break;
-      if (c >= base)
-	break;
-      /* Check for overflow.  */
-      if (i > cutoff || (i == cutoff && c > cutlim))
-	overflow = 1;
-      else
-	{
-	  i *= (unsigned long int) base;
-	  i += c;
+	/* Check for a sign.  */
+	if(*s == '-') {
+		sign = -1;
+		++s;
 	}
-    }
+	else if(*s == '+') {
+		sign = 1;
+		++s;
+	}
+	else sign = 1;
 
-  /* Check if anything actually happened.  */
-  if (s == save)
-    goto noconv;
+	ishex = s[1] == 'X' || s[1] == 'x';
+	if(base == 16 && s[0] == '0' && ishex) s += 2;
 
-  /* Store in ENDPTR the address of one character
-     past the last character we converted.  */
-  if (endptr != NULL)
-    *endptr = (char *) s;
+	/* If BASE is zero, figure it out ourselves.  */
+	if(base == 0) {
+		if(*s == '0') {
+			if(ishex) {
+				s += 2;
+				base = 16;
+			}
+			else base = 8;
+		}
+		else base = 10;
+	}
 
-#if	!UNSIGNED
-  /* Check for a value that is within the range of
-     `unsigned long int', but outside the range of `long int'.  */
-  if (i > (unsigned long int) (sign > 0 ? LONG_MAX : - LONG_MAX))
-    overflow = 1;
-#endif
+	/* Save the pointer so we can check later if anything happened.  */
+	save = s;
 
-  if (overflow)
-    {
-      errno = ERANGE;
-#if	UNSIGNED
-      return ULONG_MAX;
-#else
-      return sign > 0 ? LONG_MAX : LONG_MIN;
-#endif
-    }
+	cutoff = ASYS_NATIVE_ULONG_MAX / (asys_native_ulong_t) base;
+	limit = ASYS_NATIVE_ULONG_MAX % (asys_native_ulong_t) base;
 
-  /* Return the result of the appropriate sign.  */
-  return i * sign;
+	overflow = 0;
+	i = 0;
+	for(c = *s; c != '\0'; c = *++s) {
+		if(asys_character_is_digit(c)) c -= '0';
+		else if(asys_character_is_letter(c)) {
+			c = (char) (asys_character_to_upper(c) - 'A' + 10);
+		}
+		else break;
 
-noconv:;
-  /* There was no number to convert.  */
-  if (endptr != NULL)
-    *endptr = (char *) nptr;
-  return 0L;
+		if(c >= base) break;
+
+		/* Check for overflow.  */
+		if(i > cutoff || (i == cutoff && c > (char) limit)) overflow = 1;
+		else {
+			i *= (asys_native_ulong_t) base;
+			i += c;
+		}
+	}
+
+	/* Check if anything actually happened.  */
+	if(s == save) goto noconv;
+
+	/* Store in ENDPTR the address of one character
+	past the last character we converted.  */
+	if(end) *end = (char*) s;
+
+	if(overflow) return ASYS_NATIVE_ULONG_MAX;
+
+	/* Return the result of the appropriate sign.  */
+	return (asys_native_long_t) i * sign;
+
+	noconv: {
+		/* There was no number to convert.  */
+		if(end) *end = (char*) string;
+		return 0L;
+	}
 }
