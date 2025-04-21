@@ -19,7 +19,9 @@ Cambridge, MA 02139, USA.  */
 #include <asys/base.h>
 #include <asys/string.h>
 
-asys_native_long_t glibc_strtol(const char* string, char** end, int base) {
+asys_native_long_t glibc_strtol(
+		const char* string, char** end, int base) {
+
 	asys_native_ulong_t cutoff, i;
 
 	const char* s;
@@ -74,7 +76,7 @@ asys_native_long_t glibc_strtol(const char* string, char** end, int base) {
 	overflow = 0;
 	i = 0;
 	for(c = *s; c != '\0'; c = *++s) {
-		if(asys_character_is_digit(c)) c -= '0';
+		if(asys_character_is_dec_digit(c)) c -= '0';
 		else if(asys_character_is_letter(c)) {
 			c = (char) (asys_character_to_upper(c) - 'A' + 10);
 		}
